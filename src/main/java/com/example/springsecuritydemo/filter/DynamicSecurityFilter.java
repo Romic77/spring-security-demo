@@ -1,14 +1,15 @@
 package com.example.springsecuritydemo.filter;
 
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import org.springframework.security.access.SecurityMetadataSource;
 import org.springframework.security.access.intercept.AbstractSecurityInterceptor;
 import org.springframework.security.web.FilterInvocation;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+
 import java.io.IOException;
 
 /**
@@ -20,11 +21,6 @@ public class DynamicSecurityFilter extends AbstractSecurityInterceptor implement
 
 
     @Override
-    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
-
-    }
-
-    @Override
     public Class<?> getSecureObjectClass() {
         return FilterInvocation.class;
     }
@@ -32,5 +28,10 @@ public class DynamicSecurityFilter extends AbstractSecurityInterceptor implement
     @Override
     public SecurityMetadataSource obtainSecurityMetadataSource() {
         return null;
+    }
+
+    @Override
+    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
+
     }
 }
