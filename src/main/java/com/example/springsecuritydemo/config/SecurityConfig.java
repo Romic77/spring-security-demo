@@ -1,55 +1,75 @@
 package com.example.springsecuritydemo.config;
 
+import com.example.springsecuritydemo.component.DynamicSecurityFilter;
+import com.example.springsecuritydemo.component.JwtAuthenticationTokenFilter;
+import com.example.springsecuritydemo.component.RestAuthenticationEntryPoint;
+import com.example.springsecuritydemo.component.RestfulAccessDeniedHandler;
+import com.example.springsecuritydemo.service.DynamicSecurityService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.config.annotation.web.configurers.ExpressionUrlAuthorizationConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.FilterSecurityInterceptor;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * @author Romic
- * @date 2023/6/9
- * @description
+ * SpringSecurity 5.4.x以上新用法配置
+ * 为避免循环依赖，仅用于配置HttpSecurity
+ * Created by macro on 2022/5/19.
  */
-//开启方法级别的权限控制
-@EnableMethodSecurity
 @Configuration
 public class SecurityConfig {
+
+
+    @Autowired
+    private IgnoreUrlsConfig ignoreUrlsConfig;
+    @Autowired
+    private RestfulAccessDeniedHandler restfulAccessDeniedHandler;
+    @Autowired
+    private RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+    @Autowired
+    private JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter;
+    @Autowired
+    private DynamicSecurityService dynamicSecurityService;
+    @Autowired
+    private DynamicSecurityFilter dynamicSecurityFilter;
+
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
-        httpSecurity.authorizeHttpRequests(registry -> {
-            registry.requestMatchers("/").permitAll() //放过首页
-                    .anyRequest().authenticated();  //其他都需要权限
-        });
-
-        //表单登录功能
-        httpSecurity.formLogin(formLogin -> {
-            //自定义登录页位置，并且所有人都可以访问
-            formLogin.loginPage("/login").permitAll();
-        });
-
+    SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
+        ExpressionUrlAuthorizationConfigurer<HttpSecurity>.ExpressionInterceptUrlRegistry registry = httpSecurity
+                .authorizeRequests();
+        //不需要保护的资源路径允许访问
+        for (String url : ignoreUrlsConfig.getUrls()) {
+            registry.requestMatchers(url).permitAll();
+        }
+        //允许跨域请求的OPTIONS请求
+        registry.requestMatchers(HttpMethod.OPTIONS)
+                .permitAll();
+        httpSecurity.csrf()// 由于使用的是JWT，我们这里不需要csrf
+                .disable()
+                .sessionManagement()// 基于token，所以不需要session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and()
+                .authorizeRequests()
+                .anyRequest()// 除上面外的所有请求全部需要鉴权认证
+                .authenticated();
+        // 禁用缓存
+        httpSecurity.headers().cacheControl();
+        // 添加JWT filter
+        httpSecurity.addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class);
+        //添加自定义未授权和未登录结果返回
+        httpSecurity.exceptionHandling()
+                .accessDeniedHandler(restfulAccessDeniedHandler)
+                .authenticationEntryPoint(restAuthenticationEntryPoint);
+        //有动态权限配置时添加动态权限校验过滤器
+        if (dynamicSecurityService != null) {
+            registry.and().addFilterBefore(dynamicSecurityFilter, FilterSecurityInterceptor.class);
+        }
         return httpSecurity.build();
     }
 
-
-    @Bean
-    UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-        UserDetails zhangsan = User.withUsername("zhangsan")
-                .password(passwordEncoder.encode("123456")).roles("admin").authorities("file_read", "file_write").build();
-
-        UserDetails lisi = User.withUsername("lisi")
-                .password(passwordEncoder.encode("123456")).roles("admin").authorities("file_read", "all").build();
-        return new InMemoryUserDetailsManager(zhangsan, lisi);
-    }
-
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
 }

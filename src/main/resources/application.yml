@@ -1,0 +1,30 @@
+server:
+  port: 8888
+
+spring:
+  mvc:
+    path match:
+      matching-strategy: ANT_PATH_MATCHER
+
+# ???jwt key
+jwt:
+  tokenHeader: Authorization #JWT??????
+  secret: mySecret #JWT????????
+  expiration: 604800 #JWT??????(60*60*24)
+  tokenHead: Bearer  #JWT???????
+
+
+secure:
+  ignored:
+    urls: #???????
+      - /swagger-ui/
+      - /swagger-resources/**
+      - /**/v2/api-docs
+      - /**/*.html
+      - /**/*.js
+      - /**/*.css
+      - /**/*.png
+      - /favicon.ico
+      - /actuator/**
+      - /druid/**
+      - /admin/login
